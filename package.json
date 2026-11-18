@@ -9,7 +9,7 @@
     "dev": "node --watch index.js"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   },
   "dependencies": {
     "@dank074/discord-video-stream": "^7.0.0",

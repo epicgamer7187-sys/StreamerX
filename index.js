@@ -1,6 +1,7 @@
 'use strict';
 
 require('dotenv').config();
+require('./src/utils/xvfb').ensureDisplay();
 
 const {
   Client,

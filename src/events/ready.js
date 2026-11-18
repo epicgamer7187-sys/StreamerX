@@ -4,7 +4,7 @@ const { ensureApplicationEmojis } = require('../utils/emojiManager');
 const { refreshSticky } = require('../utils/stickyManager');
 
 module.exports = {
-  name: 'ready',
+  name: 'clientReady',
   once: true,
   async execute(client) {
     console.log(`[+] Logged in as ${client.user.tag} (${client.botName})`);

@@ -15,6 +15,7 @@ const https = require('https');
 const { URL } = require('url');
 const crypto = require('crypto');
 const EventEmitter = require('events');
+const { LiveSession } = require('./liveStreamer');
 
 const DISCORD_API = 'https://discord.com/api/v10';
 const GATEWAY_URL = 'wss://gateway.discord.gg/?v=10&encoding=json';

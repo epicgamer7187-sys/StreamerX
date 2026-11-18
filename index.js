@@ -3,6 +3,19 @@
 require('dotenv').config();
 require('./src/utils/xvfb').ensureDisplay();
 
+/* startup safety checks */
+if (!process.env.BOT_TOKEN) {
+  console.error('BOT_TOKEN is not set. Add it in Railway -> Variables.');
+  process.exit(1);
+}
+if (!process.env.ENCRYPTION_KEY || process.env.ENCRYPTION_KEY.length < 32) {
+  console.error('ENCRYPTION_KEY must be set and at least 32 characters (openssl rand -hex 32).');
+  process.exit(1);
+}
+if ((process.env.OWNER_IDS || '').includes('1483125378653487185')) {
+  console.warn('WARNING: OWNER_IDS still contains the ID from the original .env.example. Replace it with your own ID.');
+}
+
 const {
   Client,
   GatewayIntentBits,

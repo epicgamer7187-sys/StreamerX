@@ -59,11 +59,8 @@ for (const file of fs.readdirSync(eventsPath).filter((f) => f.endsWith('.js'))) 
 setInterval(() => {
   for (const [userId, entry] of sessionManager.sessions) {
     const u = getUser(userId);
-    const elapsed = Math.floor((Date.now() - entry.startedAt) / 1000);
-    // we store absolute total; on stop we flush the delta
-    // here we keep a soft live counter by updating totalSeconds with session offset
-    // simpler: every minute add 60s if stream is active
-    if (entry.streamer?.streamActive) {
+    // every minute add 60s while the live stream is actually pushing frames
+    if (entry.live?.streaming) {
       setUser(userId, { totalSeconds: (u.totalSeconds || 0) + 60 });
     }
   }
@@ -77,8 +74,16 @@ client.login(process.env.BOT_TOKEN).catch((err) => {
 process.on('unhandledRejection', (err) => {
   console.error('Unhandled rejection:', err);
 });
-process.on('SIGINT', async () => {
-  console.log('Shutting down…');
-  await sessionManager.stopAll();
+
+async function shutdown(signal) {
+  console.log(`${signal} received, shutting down…`);
+  try {
+    await sessionManager.stopAll();
+  } catch (err) {
+    console.error('Cleanup failed:', err.message);
+  }
   process.exit(0);
-});
+}
+
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));

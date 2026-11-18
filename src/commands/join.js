@@ -99,8 +99,8 @@ module.exports = {
       const emb = successEmbed(message.author, client.botName, 'Session started', [
         `**Channel:** ${channelName} (\`${channelId}\`)`,
         `**Streaming:** ${u.streamUrl}`,
-        `**Main:** live (Go Live)`,
-        `**Alt:** ${tokens.alt ? 'watching' : 'not linked (hours may not count)'}`,
+        `**Main:** starting Go Live (can take up to a minute to appear)`,
+        `**Alt:** ${tokens.alt ? 'will start watching as soon as the stream is live' : 'not linked (hours may not count)'}`,
         '',
         `Logged hours: **${formatHours(u.totalSeconds)}h**`,
         `Next: ${nextTier(hours)}`,

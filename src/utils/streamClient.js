@@ -640,7 +640,6 @@ function sleep(ms) {
 /* -------------------- Session Manager (per Discord user) -------------------- */
 class SessionManager {
   constructor() {
-    /** @type {Map<string, {streamer: DiscordStreamClient, viewer?: DiscordStreamClient, startedAt: number, userId: string}>} */
     this.sessions = new Map();
   }
 
@@ -655,31 +654,43 @@ class SessionManager {
   list() {
     return [...this.sessions.entries()].map(([uid, s]) => ({
       userId: uid,
-      username: s.streamer?.username || '?',
-      streamActive: !!s.streamer?.streamActive,
+      username: s.live?.username || '?',
+      url: s.live?.url || null,
+      streamActive: !!s.live?.streaming,
       startedAt: s.startedAt,
       hasViewer: !!s.viewer,
     }));
   }
 
-  async startSession({ userId, mainToken, altToken, guildId, channelId, channelName }) {
-    if (this.sessions.has(userId)) {
-      await this.stopSession(userId);
-    }
+  async startSession({ userId, mainToken, altToken, guildId, channelId, channelName, url }) {
+    if (!url) throw new Error('No stream URL set. Use `.stream <url>` first.');
+    if (this.sessions.has(userId)) await this.stopSession(userId);
 
-    const streamer = new DiscordStreamClient({
+    const live = new LiveSession({
+      userId,
       token: mainToken,
       guildId,
       channelId,
-      role: 'streamer',
-      selfMute: true,
-      selfDeaf: true,
-      selfVideo: false,
+      url,
     });
 
-    let viewer = null;
+    const entry = {
+      userId,
+      live,
+      viewer: null,
+      startedAt: Date.now(),
+      guildId,
+      channelId,
+      channelName,
+    };
+    this.sessions.set(userId, entry);
+
+    // main: login → join VC → go live with the URL
+    await live.start();
+
+    // alt: join the same VC and watch the stream the main just created
     if (altToken) {
-      viewer = new DiscordStreamClient({
+      const viewer = new DiscordStreamClient({
         token: altToken,
         guildId,
         channelId,
@@ -688,39 +699,19 @@ class SessionManager {
         selfDeaf: true,
         selfVideo: false,
       });
+      entry.viewer = viewer;
+      viewer.start().catch((err) =>
+        console.error(`[viewer:${userId}] ${err.message}`)
+      );
+
+      live
+        .waitForStreamKey(20_000)
+        .then(async (key) => {
+          if (!key || !this.sessions.has(userId)) return;
+          await viewer.watchStream(key);
+        })
+        .catch(() => {});
     }
-
-    const entry = {
-      streamer,
-      viewer,
-      startedAt: Date.now(),
-      userId,
-      guildId,
-      channelId,
-      channelName,
-    };
-    this.sessions.set(userId, entry);
-
-    streamer.on('streamCreate', async (key) => {
-      if (viewer) {
-        // wait for viewer ready then watch
-        const tryWatch = async () => {
-          if (viewer.userId) {
-            await sleep(1500);
-            await viewer.watchStream(key);
-          } else {
-            viewer.once('ready', async () => {
-              await sleep(1500);
-              await viewer.watchStream(key);
-            });
-          }
-        };
-        tryWatch().catch(() => {});
-      }
-    });
-
-    streamer.start().catch(() => {});
-    if (viewer) viewer.start().catch(() => {});
 
     return entry;
   }
@@ -729,22 +720,16 @@ class SessionManager {
     const entry = this.sessions.get(userId);
     if (!entry) return;
     this.sessions.delete(userId);
-    await entry.streamer.stop().catch(() => {});
-    if (entry.viewer) await entry.viewer.stop().catch(() => {});
+    await entry.live?.stop();
+    if (entry.viewer) await entry.viewer.stop();
   }
 
   async stopAll() {
-    const ids = [...this.sessions.keys()];
-    for (const id of ids) await this.stopSession(id);
+    for (const id of [...this.sessions.keys()]) await this.stopSession(id);
   }
 
-  /**
-   * Accrue hours for a running session into the data store.
-   */
-  tickHours(userId, setUserFn) {
-    const entry = this.sessions.get(userId);
-    if (!entry) return;
-    // hours are tracked externally by the bot on interval; this is just a helper
+  tickHours() {
+    /* handled by the interval in index.js */
   }
 }
 

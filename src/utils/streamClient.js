@@ -695,7 +695,9 @@ class SessionManager {
     // main: login → join VC → go live with the URL
     await live.start();
 
-    // alt: join the same VC and watch the stream the main just created
+    // alt: join the same VC and watch the stream the main creates.
+    // The Go Live key only exists once the stream is really up (can take a minute or more) and it changes
+    // on every restart, so keep polling and (re)watch whenever it changes instead of giving up after 20s.
     if (altToken) {
       const viewer = new DiscordStreamClient({
         token: altToken,
@@ -707,17 +709,30 @@ class SessionManager {
         selfVideo: false,
       });
       entry.viewer = viewer;
+
+      let viewerReady = false;
+      let lastKey = null;
+      viewer.on('ready', () => {
+        viewerReady = true;
+        lastKey = null; // re-watch after a reconnect
+      });
+
       viewer.start().catch((err) =>
         console.error(`[viewer:${userId}] ${err.message}`)
       );
 
-      live
-        .waitForStreamKey(20_000)
-        .then(async (key) => {
-          if (!key || !this.sessions.has(userId)) return;
-          await viewer.watchStream(key);
-        })
-        .catch(() => {});
+      (async () => {
+        while (this.sessions.get(userId) === entry) {
+          const key = live.streamer?.voiceConnection?.streamConnection?.streamKey;
+          if (key && key !== lastKey && viewerReady && viewer.ws && !viewer.ws.closed) {
+            await sleep(1500); // let the alt finish joining the voice channel
+            await viewer.watchStream(key);
+            lastKey = key;
+            console.log(`[viewer:${userId}] watching stream ${key}`);
+          }
+          await sleep(2000);
+        }
+      })().catch((err) => console.error(`[viewer:${userId}] watcher: ${err.message}`));
     }
 
     return entry;

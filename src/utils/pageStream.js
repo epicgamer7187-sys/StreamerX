@@ -78,12 +78,29 @@ class PageCapture {
       })
       .catch(() => {});
 
+    // tab capture only emits frames when the picture changes: a static page can stall the stream.
+    // A 2px corner element flickering by 1/255 forces steady frames without being visible.
+    await this.page
+      .evaluate(() => {
+        const d = document.createElement('div');
+        d.style.cssText =
+          'position:fixed;right:0;bottom:0;width:2px;height:2px;z-index:2147483647;pointer-events:none;';
+        d.animate([{ background: '#010101' }, { background: '#020202' }], {
+          duration: 500,
+          iterations: Infinity,
+          direction: 'alternate',
+        });
+        document.documentElement.appendChild(d);
+      })
+      .catch(() => {});
+
     // let the page settle / autoplay kick in
     await new Promise((r) => setTimeout(r, 2500));
   }
 
   async getStream() {
     // puppeteer-stream hangs forever if its extension failed to load: time out so we can fall back
+    await this.page.bringToFront().catch(() => {});
     this.media = await withTimeout(
       getStream(this.page, {
         audio: this.audio,

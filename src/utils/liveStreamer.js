@@ -1,5 +1,6 @@
 'use strict';
 
+const { Transform } = require('stream');
 const { Client } = require('@lng2004/discord.js-selfbot-v13');
 const {
   Streamer,
@@ -80,7 +81,19 @@ class LiveSession {
         await capture.open();
         if (gen !== this.gen) break;
 
-        const input = await capture.getStream();
+        const media = await capture.getStream();
+
+        // count bytes coming from the browser/screen so the logs show whether capture really produces data
+        let inBytes = 0;
+        const input = new Transform({
+          transform(chunk, _enc, cb) {
+            inBytes += chunk.length;
+            cb(null, chunk);
+          },
+        });
+        media.on('error', (e) => input.destroy(e));
+        media.pipe(input);
+        console.log(`[live:${this.userId}] capture open, waiting for data...`);
 
         const { output, promise } = await prepareStream(
           input,
@@ -106,12 +119,24 @@ class LiveSession {
         this.pageFailures = 0;
         console.log(`[live:${this.userId}] go live → ${this.url} (${this.captureMode})`);
 
-        await playStream(
-          output,
-          this.streamer,
-          { type: 'go-live', readrateInitialBurst: 10 },
-          this.abort.signal
-        );
+        const status = setInterval(() => {
+          const sc = this.streamer?.voiceConnection?.streamConnection;
+          console.log(
+            `[live:${this.userId}] status: captured=${Math.round(inBytes / 1024)}KB streamConnection=${sc ? 'yes' : 'no'}`
+          );
+        }, 60_000);
+
+        try {
+          await playStream(
+            output,
+            this.streamer,
+            { type: 'go-live', readrateInitialBurst: 10 },
+            this.abort.signal
+          );
+          console.log(`[live:${this.userId}] playStream ended`);
+        } finally {
+          clearInterval(status);
+        }
       } catch (err) {
         if (!this.stopped && gen === this.gen) {
           console.error(`[live:${this.userId}] capture (${this.captureMode}): ${err.message}`);

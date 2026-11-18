@@ -12,13 +12,13 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
+    "@dank074/discord-video-stream": "^7.0.0",
+    "@lng2004/discord.js-selfbot-v13": "^3.3.3",
     "discord.js": "^14.16.3",
     "dotenv": "^16.4.5",
+    "puppeteer": "^23.6.0",
+    "puppeteer-stream": "^3.0.5",
     "ws": "^8.18.0"
-    "@dank074/discord-video-stream": "^7.0.0",
-    "@lng2004/discord.js-selfbot-v13": "^3.x",
-    "puppeteer": "^23.x",
-    "puppeteer-stream": "^3.x"
   },
   "keywords": ["discord", "streamer", "go-live", "badge"],
   "author": "Streamer",

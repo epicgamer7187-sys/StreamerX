@@ -38,10 +38,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p /data
 
-# Debian's ffmpeg 7.1 rejects "-flags lowdelay" (it is now "low_delay"), which the stream library passes.
-# This wrapper translates it so transcoding starts.
-RUN printf '#!/bin/sh\nfor a; do shift; [ "$a" = "lowdelay" ] && a=low_delay; set -- "$@" "$a"; done\nexec /usr/bin/ffmpeg "$@"\n' > /usr/local/bin/ffmpeg \
-    && chmod +x /usr/local/bin/ffmpeg
+# ffmpeg wrapper: fixes "-flags lowdelay" on Debian's ffmpeg 7.1 and makes the stream start fast
+# (see docker/ffmpeg-wrapper.sh). Set STREAM_FAST_START=false in Railway Variables to turn fast start off.
+COPY docker/ffmpeg-wrapper.sh /usr/local/bin/ffmpeg
+RUN sed -i 's/\r$//' /usr/local/bin/ffmpeg && chmod +x /usr/local/bin/ffmpeg
 
 WORKDIR /app
 COPY --from=build /app/node_modules ./node_modules

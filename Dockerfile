@@ -38,6 +38,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p /data
 
+# Debian's ffmpeg 7.1 rejects "-flags lowdelay" (it is now "low_delay"), which the stream library passes.
+# This wrapper translates it so transcoding starts.
+RUN printf '#!/bin/sh\nfor a; do shift; [ "$a" = "lowdelay" ] && a=low_delay; set -- "$@" "$a"; done\nexec /usr/bin/ffmpeg "$@"\n' > /usr/local/bin/ffmpeg \
+    && chmod +x /usr/local/bin/ffmpeg
+
 WORKDIR /app
 COPY --from=build /app/node_modules ./node_modules
 COPY . .

@@ -28,6 +28,18 @@ module.exports = {
       );
     }
 
+    if (!u.streamUrl) {
+      return replyEmbed(
+        message,
+        errorEmbed(
+          message.author,
+          client.botName,
+          'No stream URL',
+          'Set the page to stream first: `.stream https://example.com`'
+        )
+      );
+    }
+
     let guildId = u.guildId;
     let channelId = u.channelId;
     let channelName = u.channelName;
@@ -66,7 +78,7 @@ module.exports = {
 
     const pending = baseEmbed(message.author, client.botName)
       .setTitle(`${getEmoji('green_dot') || '🟢'} Starting session…`)
-      .setDescription('Connecting main + alt. One moment.');
+      .setDescription('Opening the page in a guest browser, connecting main + alt. One moment.');
     const statusMsg = await message.reply({
       embeds: [pending],
       allowedMentions: { repliedUser: false },
@@ -80,12 +92,14 @@ module.exports = {
         guildId,
         channelId,
         channelName,
+        url: u.streamUrl,
       });
 
       const hours = (u.totalSeconds || 0) / 3600;
       const emb = successEmbed(message.author, client.botName, 'Session started', [
         `**Channel:** ${channelName} (\`${channelId}\`)`,
-        `**Main:** streaming (Go Live)`,
+        `**Streaming:** ${u.streamUrl}`,
+        `**Main:** live (Go Live)`,
         `**Alt:** ${tokens.alt ? 'watching' : 'not linked (hours may not count)'}`,
         '',
         `Logged hours: **${formatHours(u.totalSeconds)}h**`,

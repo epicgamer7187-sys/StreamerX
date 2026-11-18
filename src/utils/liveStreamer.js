@@ -16,9 +16,10 @@ const FPS = Number(process.env.STREAM_FPS || 30);
 const BITRATE = Number(process.env.STREAM_BITRATE_KBPS || 2500);
 const AUDIO = process.env.STREAM_AUDIO !== 'false';
 
-function makeCapture(url) {
+function makeCapture(url, mode) {
   const opts = { width: WIDTH, height: HEIGHT, fps: FPS, audio: AUDIO };
-  if (process.env.CAPTURE_MODE === 'x11') {
+  if (mode === 'x11') {
+    require('./xvfb').ensureDisplay(true);
     const { X11Capture } = require('./x11Capture');
     return new X11Capture(url, opts);
   }
@@ -36,6 +37,8 @@ class LiveSession {
     this.username = 'Unknown';
     this.streaming = false;
     this.stopped = false;
+    this.captureMode = process.env.CAPTURE_MODE === 'x11' ? 'x11' : 'page';
+    this.pageFailures = 0;
     this.gen = 0;
     this.abort = null;
     this.client = null;
@@ -71,8 +74,9 @@ class LiveSession {
   async _pump(gen) {
     while (!this.stopped && gen === this.gen) {
       let capture = null;
+      let started = false;
       try {
-        capture = makeCapture(this.url);
+        capture = makeCapture(this.url, this.captureMode);
         await capture.open();
         if (gen !== this.gen) break;
 
@@ -98,7 +102,9 @@ class LiveSession {
         });
 
         this.streaming = true;
-        console.log(`[live:${this.userId}] go live → ${this.url}`);
+        started = true;
+        this.pageFailures = 0;
+        console.log(`[live:${this.userId}] go live → ${this.url} (${this.captureMode})`);
 
         await playStream(
           output,
@@ -108,7 +114,17 @@ class LiveSession {
         );
       } catch (err) {
         if (!this.stopped && gen === this.gen) {
-          console.error(`[live:${this.userId}] capture: ${err.message}`);
+          console.error(`[live:${this.userId}] capture (${this.captureMode}): ${err.message}`);
+          // page capture never got going twice in a row -> fall back to Xvfb + ffmpeg
+          if (
+            !started &&
+            this.captureMode === 'page' &&
+            process.env.CAPTURE_FALLBACK !== 'false' &&
+            ++this.pageFailures >= 2
+          ) {
+            this.captureMode = 'x11';
+            console.warn(`[live:${this.userId}] page capture failed twice, switching to x11 capture`);
+          }
         }
       } finally {
         this.streaming = false;

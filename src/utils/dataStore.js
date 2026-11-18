@@ -4,7 +4,9 @@ const fs = require('fs');
 const path = require('path');
 const { encrypt, decrypt } = require('./encryption');
 
-const DATA_DIR = path.join(__dirname, '..', '..', 'data');
+const DATA_DIR = process.env.DATA_DIR
+  ? path.resolve(process.env.DATA_DIR)
+  : path.join(__dirname, '..', '..', 'data');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
 const EMOJI_CACHE = path.join(DATA_DIR, 'emojis.json');

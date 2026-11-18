@@ -3,14 +3,17 @@
 const { spawn, spawnSync } = require('child_process');
 
 const DISPLAY = ':99';
+let started = false;
 
 /**
- * Start a virtual X display, only when CAPTURE_MODE=x11.
- * Headless tab capture (default) needs no display at all.
+ * Start a virtual X display.
+ * Runs at boot when CAPTURE_MODE=x11, or on demand (force=true) when page
+ * capture fails and the session falls back to x11.
  */
-function ensureDisplay() {
-  if (process.env.CAPTURE_MODE !== 'x11') return;
-  if (process.env.DISPLAY) return;
+function ensureDisplay(force = false) {
+  if (!force && process.env.CAPTURE_MODE !== 'x11') return;
+  if (started || process.env.DISPLAY) return;
+  started = true;
 
   const width = process.env.STREAM_WIDTH || 1280;
   const height = process.env.STREAM_HEIGHT || 720;

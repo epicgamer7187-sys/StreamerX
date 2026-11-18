@@ -12,17 +12,28 @@ const BASE_ARGS = [
   '--no-sandbox',
   '--disable-setuid-sandbox',
   '--disable-dev-shm-usage',
+  '--disable-gpu',
   '--no-first-run',
   '--no-default-browser-check',
   '--autoplay-policy=no-user-gesture-required',
   '--enable-usermedia-screen-capturing',
   '--allow-http-screen-capture',
+  '--auto-select-desktop-capture-source=Streamer',
+  // newer Chromium builds block --load-extension, which puppeteer-stream needs
+  '--disable-features=DisableLoadExtensionCommandLineSwitch',
   '--hide-scrollbars',
-  '--mute-audio',
   '--disable-background-timer-throttling',
   '--disable-backgrounding-occluded-windows',
   '--disable-renderer-backgrounding',
 ];
+
+function withTimeout(promise, ms, label) {
+  let t;
+  const timeout = new Promise((_, reject) => {
+    t = setTimeout(() => reject(new Error(`${label} timed out after ${ms / 1000}s`)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(t));
+}
 
 class PageCapture {
   constructor(url, { width, height, audio = true } = {}) {
@@ -40,13 +51,17 @@ class PageCapture {
     // guest profile: brand new dir, deleted on close
     this.profileDir = fs.mkdtempSync(path.join(os.tmpdir(), 'streamerx-guest-'));
 
-    this.browser = await launch({
-      executablePath: EXECUTABLE,
-      headless: 'new',
-      userDataDir: this.profileDir,
-      defaultViewport: { width: this.width, height: this.height },
-      args: [...BASE_ARGS, `--window-size=${this.width},${this.height}`],
-    });
+    this.browser = await withTimeout(
+      launch({
+        executablePath: EXECUTABLE,
+        headless: 'new',
+        userDataDir: this.profileDir,
+        defaultViewport: { width: this.width, height: this.height },
+        args: [...BASE_ARGS, `--window-size=${this.width},${this.height}`],
+      }),
+      45_000,
+      'browser launch'
+    );
 
     this.page = await this.browser.newPage();
     this.page.setDefaultTimeout(60_000);
@@ -68,11 +83,16 @@ class PageCapture {
   }
 
   async getStream() {
-    this.media = await getStream(this.page, {
-      audio: this.audio,
-      video: true,
-      mimeType: this.audio ? 'video/webm;codecs=vp8,opus' : 'video/webm;codecs=vp8',
-    });
+    // puppeteer-stream hangs forever if its extension failed to load: time out so we can fall back
+    this.media = await withTimeout(
+      getStream(this.page, {
+        audio: this.audio,
+        video: true,
+        mimeType: this.audio ? 'video/webm;codecs=vp8,opus' : 'video/webm;codecs=vp8',
+      }),
+      30_000,
+      'puppeteer-stream getStream'
+    );
     return this.media;
   }
 

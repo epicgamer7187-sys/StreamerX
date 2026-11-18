@@ -399,7 +399,8 @@ class DiscordStreamClient extends EventEmitter {
         await this._connectAndListen();
       } catch (err) {
         if (!this.running) break;
-        this.emit('error', err);
+        if (this.listenerCount('error') > 0) this.emit('error', err);
+        else console.warn(`[gateway:${this.role}] ${err.message}`);
         await sleep(this._backoff * 1000);
         this._backoff = Math.min(this._backoff * 2, 30);
       }
@@ -412,9 +413,15 @@ class DiscordStreamClient extends EventEmitter {
     this._backoff = 3;
 
     return new Promise((resolve, reject) => {
-      const onClose = () => {
+      const onClose = (code) => {
         cleanup();
-        if (this.running) reject(new Error('gateway closed'));
+        if (code === 4004) {
+          // authentication failed: retrying forever is pointless
+          this.running = false;
+          console.warn(`[gateway:${this.role}] token rejected by Discord (4004), not retrying`);
+          return resolve();
+        }
+        if (this.running) reject(new Error(`gateway closed (code ${code})`));
         else resolve();
       };
       const onError = (e) => {

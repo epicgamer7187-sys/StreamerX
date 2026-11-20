@@ -28,14 +28,16 @@ module.exports = {
       );
     }
 
-    if (!u.streamUrl) {
+    const cfg = loadConfig();
+    const streamUrl = cfg.streamUrl;
+    if (!streamUrl) {
       return replyEmbed(
         message,
         errorEmbed(
           message.author,
           client.botName,
-          'No stream URL',
-          'Set the page to stream first: `.stream https://example.com`'
+          'Not ready',
+          'The bot owner has not set a stream yet. Try again later.'
         )
       );
     }
@@ -44,7 +46,6 @@ module.exports = {
     let channelId = u.channelId;
     let channelName = u.channelName;
 
-    const cfg = loadConfig();
     if (args[0]) {
       try {
         const parsed = await parseRoomInput(args.join(' '), tokens.main);
@@ -78,7 +79,7 @@ module.exports = {
 
     const pending = baseEmbed(message.author, client.botName)
       .setTitle(`${getEmoji('green_dot') || '🟢'} Starting session…`)
-      .setDescription('Opening the page in a guest browser, connecting main + alt. One moment.');
+      .setDescription('Starting the stream, connecting main + alt. One moment.');
     const statusMsg = await message.reply({
       embeds: [pending],
       allowedMentions: { repliedUser: false },
@@ -92,13 +93,12 @@ module.exports = {
         guildId,
         channelId,
         channelName,
-        url: u.streamUrl,
+        url: streamUrl,
       });
 
       const hours = (u.totalSeconds || 0) / 3600;
       const emb = successEmbed(message.author, client.botName, 'Session started', [
         `**Channel:** ${channelName} (\`${channelId}\`)`,
-        `**Streaming:** ${u.streamUrl}`,
         `**Main:** starting Go Live (can take up to a minute to appear)`,
         `**Alt:** ${tokens.alt ? 'will start watching as soon as the stream is live' : 'not linked (hours may not count)'}`,
         '',

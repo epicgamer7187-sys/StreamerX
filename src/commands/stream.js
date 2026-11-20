@@ -1,61 +1,68 @@
 'use strict';
 
-const { getUser, setUser } = require('../utils/dataStore');
+const { loadConfig, saveConfig } = require('../utils/dataStore');
 const { sessionManager } = require('../utils/streamClient');
 const { baseEmbed, successEmbed, errorEmbed, replyEmbed } = require('../utils/helpers');
 
 module.exports = {
   name: 'stream',
   aliases: ['url', 'setstream'],
-  description: 'Set the URL the main account streams when it goes live',
+  ownerOnly: true,
+  description: 'Set the URL every session streams (owner only, never displayed)',
   async execute(message, args, client) {
-    const userId = message.author.id;
     const raw = args.join(' ').trim();
+    const cfg = loadConfig();
+    const reply = (emb) => message.channel.send({ embeds: [emb] });
 
+    // status only: never print the URL itself
     if (!raw) {
-      const u = getUser(userId);
       return replyEmbed(
         message,
         baseEmbed(message.author, client.botName)
           .setTitle('Stream URL')
           .setDescription(
-            `Current: ${u.streamUrl ? `\`${u.streamUrl}\`` : '*none*'}\n\nSet one with \`.stream https://example.com\``
+            `Status: ${cfg.streamUrl ? '**set** (hidden)' : '**not set**'}\n\nSet: \`.stream <url>\` · Remove: \`.stream clear\``
           )
       );
+    }
+
+    // hide the URL: remove the owner's message before doing anything else
+    await message.delete().catch(() => {});
+
+    if (['clear', 'reset', 'none', 'off'].includes(raw.toLowerCase())) {
+      cfg.streamUrl = null;
+      saveConfig(cfg);
+      return reply(successEmbed(message.author, client.botName, 'Stream URL cleared', 'No URL is set now.'));
     }
 
     let parsed;
     try {
       parsed = new URL(raw);
     } catch {
-      return replyEmbed(
-        message,
-        errorEmbed(message.author, client.botName, 'Bad URL', 'That is not a valid URL.')
-      );
+      return reply(errorEmbed(message.author, client.botName, 'Bad URL', 'That is not a valid URL.'));
     }
     if (!/^https?:$/.test(parsed.protocol)) {
-      return replyEmbed(
-        message,
-        errorEmbed(message.author, client.botName, 'Bad URL', 'Only http/https URLs work.')
-      );
+      return reply(errorEmbed(message.author, client.botName, 'Bad URL', 'Only http/https URLs work.'));
     }
 
-    setUser(userId, { streamUrl: parsed.toString() });
+    cfg.streamUrl = parsed.toString();
+    saveConfig(cfg);
 
-    const entry = sessionManager.get(userId);
-    if (entry?.live) await entry.live.switchUrl(parsed.toString());
+    // switch every running session to the new page
+    let switched = 0;
+    for (const [, entry] of sessionManager.sessions) {
+      if (entry.live) {
+        await entry.live.switchUrl(cfg.streamUrl).catch(() => {});
+        switched++;
+      }
+    }
 
-    return replyEmbed(
-      message,
+    return reply(
       successEmbed(
         message.author,
         client.botName,
-        entry?.live ? 'Stream URL switched' : 'Stream URL saved',
-        `\`${parsed.toString()}\`\n\n${
-          entry?.live
-            ? 'Reloading the page in the guest browser now.'
-            : 'Use `.join` to go live with this page.'
-        }`
+        'Stream URL saved',
+        `The URL is stored privately and is not shown anywhere.\nLive sessions switched: **${switched}**`
       )
     );
   },

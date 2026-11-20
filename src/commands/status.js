@@ -23,7 +23,7 @@ module.exports = {
       `**Next tier:** ${nextTier((u.totalSeconds || 0) / 3600)}`,
       '',
       session
-        ? `**Live session:** yes · stream ${session.streamer?.streamActive ? 'ACTIVE' : 'connecting'} · viewer ${session.viewer ? 'yes' : 'no'}`
+        ? `**Live session:** yes · stream ${session.live?.streaming ? 'ACTIVE' : 'connecting'} · viewer ${session.viewer ? 'yes' : 'no'}`
         : '**Live session:** none',
     ];
 

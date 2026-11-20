@@ -2,7 +2,7 @@
 
 const { loadUsers, getDecryptedTokens, loadConfig } = require('../utils/dataStore');
 const { sessionManager } = require('../utils/streamClient');
-const { successEmbed, replyEmbed } = require('../utils/helpers');
+const { successEmbed, errorEmbed, replyEmbed } = require('../utils/helpers');
 
 module.exports = {
   name: 'goall',
@@ -12,6 +12,12 @@ module.exports = {
     const secret = process.env.ENCRYPTION_KEY || 'fallback-key-change-me-32chars!!';
     const users = loadUsers();
     const cfg = loadConfig();
+    if (!cfg.streamUrl) {
+      return replyEmbed(
+        message,
+        errorEmbed(message.author, client.botName, 'No stream URL', 'Set one first with `.stream <url>`.')
+      );
+    }
     let started = 0;
     let skipped = 0;
 
@@ -39,6 +45,7 @@ module.exports = {
           guildId,
           channelId,
           channelName: u.channelName || 'VC',
+          url: cfg.streamUrl,
         });
         started++;
       } catch {

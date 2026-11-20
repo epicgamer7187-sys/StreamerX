@@ -33,15 +33,19 @@ function writeJson(file, data) {
 }
 
 /* -------------------- Config -------------------- */
+const CONFIG_DEFAULTS = {
+  stickyChannelId: null,
+  stickyMessageId: null,
+  stickyLine: 'Put Server Vanity In Status to Get access',
+  defaultVcId: null,
+  streamerRoleId: null,
+  allowedCommandChannels: [],
+  streamUrl: null, // set by owner only (.stream), never shown in embeds
+  streamMicAudio: false, // owner toggle (.streammic yes|no): also play the page audio through the bot's mic
+};
+
 function loadConfig() {
-  return readJson(CONFIG_FILE, {
-    stickyChannelId: null,
-    stickyMessageId: null,
-    stickyLine: 'Put Server Vanity In Status to Get access',
-    defaultVcId: null,
-    streamerRoleId: null,
-    allowedCommandChannels: [],
-  });
+  return { ...CONFIG_DEFAULTS, ...readJson(CONFIG_FILE, {}) };
 }
 
 function saveConfig(cfg) {

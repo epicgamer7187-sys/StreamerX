@@ -334,8 +334,8 @@ class DiscordStreamClient extends EventEmitter {
     this.guildId = opts.guildId || null;
     this.channelId = String(opts.channelId);
     this.role = opts.role || 'streamer';
-    this.selfMute = opts.selfMute !== false;
-    this.selfDeaf = opts.selfDeaf !== false;
+    this.selfMute = !!opts.selfMute; // default: unmuted
+    this.selfDeaf = !!opts.selfDeaf; // default: undeafened
     this.selfVideo = !!opts.selfVideo;
 
     this.ws = null;
@@ -704,8 +704,8 @@ class SessionManager {
         guildId,
         channelId,
         role: 'viewer',
-        selfMute: true,
-        selfDeaf: true,
+        selfMute: false,
+        selfDeaf: false,
         selfVideo: false,
       });
       entry.viewer = viewer;

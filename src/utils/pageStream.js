@@ -78,19 +78,23 @@ class PageCapture {
       })
       .catch(() => {});
 
-    // tab capture only emits frames when the picture changes: a static page can stall the stream.
-    // A 2px corner element flickering by 1/255 forces steady frames without being visible.
+    // tab capture only emits frames when the picture changes; a static page makes the stream stall and
+    // viewers then see Discord's loading spinner. A 4px corner square that changes on every animation
+    // frame (1/255 brightness steps, invisible) keeps frames flowing at a steady rate.
     await this.page
       .evaluate(() => {
         const d = document.createElement('div');
         d.style.cssText =
-          'position:fixed;right:0;bottom:0;width:2px;height:2px;z-index:2147483647;pointer-events:none;';
-        d.animate([{ background: '#010101' }, { background: '#020202' }], {
-          duration: 500,
-          iterations: Infinity,
-          direction: 'alternate',
-        });
+          'position:fixed;right:0;bottom:0;width:4px;height:4px;z-index:2147483647;pointer-events:none;';
         document.documentElement.appendChild(d);
+        let n = 0;
+        const tick = () => {
+          n = (n + 1) % 3;
+          const v = 1 + n;
+          d.style.background = `rgb(${v},${v},${v})`;
+          requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
       })
       .catch(() => {});
 
